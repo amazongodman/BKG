@@ -4,27 +4,16 @@ output: html_document
 ---
 
 
-
-
 ```{r}
 
 setwd("C:\\Users\\ringa\\Desktop\\BKG")
-
+library(arules)
 library(tidyverse)
 library(skimr)
 library(lubridate)
 ```
 
 
-```{r}
-install.packages("catboost")
-```
-
-
-
-```{r}
-library(catboost)
-```
 
 
 
@@ -34,98 +23,213 @@ library(catboost)
 ```{r}
 train <- read_csv("booking_train_set.csv") 
 test <- read_csv("booking_test_set.csv") 
+```
 
 
-train <- train %>% mutate(user_id = as.character(user_id),
-                 city_id = as.character(city_id),
-                 affiliate_id = as.character(affiliate_id))%>%
-  mutate(stay_days = ymd(checkout) - ymd(checkin))%>%
-  mutate(joint = str_c(booker_country,'-',hotel_country))%>%
-  mutate(checkin_month = month(checkin),
-         checkin_year = year(checkin))
 
-test <- test %>% mutate(user_id = as.character(user_id),
-                 city_id = as.character(city_id),
-                 affiliate_id = as.character(affiliate_id))%>%
-  mutate(stay_days = ymd(checkout) - ymd(checkin))%>%
-  mutate(joint = str_c(booker_country,'-',hotel_country))%>%
-  mutate(checkin_month = month(checkin),
-         checkin_year = year(checkin))  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+train_IDs <- train %>% mutate(IDs = row_number()) %>% filter(hotel_country == "Phaic Tăn")
+test_IDs <- test %>% mutate(IDs = row_number()) %>% filter(hotel_country == "Phaic Tăn")
+
+train[train_IDs$IDs,"hotel_country"]<- "Phaic Tan"
+test[test_IDs$IDs,"hotel_country"]<- "Phaic Tan"
+
+
+
+
+
+train <- train %>% 
+  mutate(user_id = as.character(user_id),
+         city_id = as.character(city_id),
+         affiliate_id = as.character(affiliate_id),
+         stay_days = ymd(checkout) - ymd(checkin),
+         joint = str_c(booker_country,'-',hotel_country),
+         checkin_month = month(checkin),
+         checkin_year = year(checkin)
+         )
+
+test <- test %>%   
+  mutate(user_id = as.character(user_id),
+         city_id = as.character(city_id),
+         affiliate_id = as.character(affiliate_id),
+         stay_days = ymd(checkout) - ymd(checkin),
+         joint = str_c(booker_country,'-',hotel_country),
+         checkin_month = month(checkin),
+         checkin_year = year(checkin)
+         )
   
+
+
+train <- train %>% 
+  arrange(utrip_id,checkin) %>% 
+  group_by(utrip_id) %>% 
+  mutate(city_step=row_number()) %>% 
+  ungroup()
+
+test <- test %>% 
+  arrange(utrip_id,checkin) %>% 
+  group_by(utrip_id) %>% 
+  mutate(city_step=row_number()) %>% 
+  ungroup()
+
+
+
+
+
+
+
+
+
+
+
 
 ```
 
 
-# 変数の定義
-
-
-
-Dataset
-
-The training dataset consists of over a million of anonymized hotel reservations, based on real data, with the following features:
-
-
-user_id - User ID
-check-in - Reservation check-in date(予約チェックイン)
-checkout - Reservation check-out date（予約チェックアウト）
-affiliate_id - （予約者のアクセス元サイト？？）An anonymized ID of affiliate channels where the booker came from (e.g. direct, some third party referrals, paid search engine, etc.)
-device_class - desktop/mobile（アクセスデバイス・端末）
-booker_country - （予約してきたヒトの国？デバイスの位置的な？）Country from which the reservation was made (anonymized)
-hotel_country - （ホテルの国）Country of the hotel (anonymized)
-city_id - （ホテルの都市）city_id of the hotel’s city (anonymized)
-utrip_id - （旅行目的をグループワケした？？）Unique identification of user’s trip (a group of multi-destinations bookings within the same trip)
-同一旅行内の複数の目的地を予約するグループ
-
-
-
-
-Each reservation is a part of a customer’s trip (identified by utrip_id) which includes at least 4 consecutive reservations.  There are 0 or more days between check-out and check-in dates of two consecutive reservations.
-
-
-
-The evaluation dataset is constructed similarly, however the city_id of the final reservation of each trip is concealed and requires a prediction.
-
-
-testの時はcity ID は隠されているらしい
-コレの予測がタスクらしい
 
 
 
 
 
 
-
-# 分析対称の洗い出し
-
-
-1-アクセス国と、対称国の関係　（フランス人は京都がお好き、みたいな）
-2-常連客がどの国、どの町を予約するか　（ほとんど決定論的に決まるなら固定でいいやん？）
-3-旅行目的区分とホテルの国、cityの結びつき （この目的のヒトはこの国行きやすいとか）
-
-
-前処理、時刻変換と滞在期間変数を作成
-4-チェックイン・チェックアウトから、平均滞在期間と町、国の関係
-5-滞在期間と、予約者の国の関係(バケーション取りやすいとか？裏山)
-6-滞在期間と、予約対象国の関係（北極なら少なくとも1週間くらい取るよね、とか）
+```{r}
+train
+```
 
 
 
 
-追加予定：
+
+```{r}
+train %>% names()
+```
 
 
-南半球、北半球の関係
-予約者と予約対象国とのフライトにかかる平均時間を変数として追加するとか
-フライトでなくても単純に距離計算でも。
+```{r}
+train %>% head(3)
+```
 
 
-もし、予約してきたヒトが所属国アメリカになっていたとしても、デバイスの元がフランスとかだったら、
-既にフランスに移住してるかもだから、
-そこの判断基準どうするか決めて、「本当の所属国」みたいなの出したら使えるかも。
 
 
-そもそも、どの国に宿泊施設が多いのか（ホテル大国（意味深））
-全体で見たらどの程度の人が、何月に行くのか（寒い国の人が暖かい国に行くとか）
+```{r}
+test %>% names()
+```
+
+
+
+# 変数の定義    
+
+
+
+Dataset   
+
+The training dataset consists of over a million of anonymized hotel reservations, based on real data, with the following features:   
+
+
+user_id - User ID   
+check-in - Reservation check-in date(予約チェックイン)    
+checkout - Reservation check-out date（予約チェックアウト）   
+affiliate_id - （予約者のアクセス元サイト？？）   
+An anonymized ID of affiliate channels where the booker came from   
+(e.g. direct, some third party referrals, paid search engine, etc.)   
+
+device_class - desktop/mobile（アクセスデバイス・端末）   
+
+booker_country - （予約してきたヒトの国？デバイスの位置的な？）   
+Country from which the reservation was made (anonymized)    
+
+hotel_country - （ホテルの国）Country of the hotel (anonymized)   
+city_id - （ホテルの都市）city_id of the hotel’s city (anonymized)    
+
+utrip_id - （旅行目的をグループワケした？？）   
+Unique identification of user’s trip    
+(a group of multi-destinations bookings within the same trip)
+同一旅行内の複数の目的地を予約するグループ    
+
+
+
+
+Each reservation is a part of a customer’s trip     
+(identified by utrip_id) which includes at least 4 consecutive reservations.    
+There are 0 or more days between check-out and check-in dates of two consecutive reservations.    
+
+
+
+The evaluation dataset is constructed similarly,    
+however the city_id of the final reservation of each trip is concealed and requires a prediction.   
+
+
+testの時はcity ID は隠されているらしい    
+コレの予測がタスクらしい    
+
+
+
+
+
+
+
+# 分析対称の洗い出し    
+
+
+1-アクセス国と、対称国の関係　（フランス人は京都がお好き、みたいな）    
+2-常連客がどの国、どの町を予約するか　（ほとんど決定論的に決まるなら固定でいいやん？）    
+3-旅行目的区分とホテルの国、cityの結びつき （この目的のヒトはこの国行きやすいとか）   
+
+前処理、時刻変換と滞在期間変数を作成    
+4-チェックイン・チェックアウトから、平均滞在期間と町、国の関係    
+5-滞在期間と、予約者の国の関係(バケーション取りやすいとか？裏山)    
+6-滞在期間と、予約対象国の関係（北極なら少なくとも1週間くらい取るよね、とか）   
+
+
+
+
+追加予定：    
+
+
+南半球、北半球の関係    
+予約者と予約対象国とのフライトにかかる平均時間を変数として追加するとか    
+フライトでなくても単純に距離計算でも。    
+
+もし、予約してきたヒトが所属国アメリカになっていたとしても、デバイスの元がフランスとかだったら、    
+既にフランスに移住してるかもだから、    
+そこの判断基準どうするか決めて、「本当の所属国」みたいなの出したら使えるかも。    
+
+
+そもそも、どの国に宿泊施設が多いのか（ホテル大国（意味深））    
+全体で見たらどの程度の人が、何月に行くのか（寒い国の人が暖かい国に行くとか）    
 
 
 
@@ -140,10 +244,145 @@ testの時はcity ID は隠されているらしい
 
 
 
+
 ```{r}
-train %>% count(user_id,utrip_id) %>% arrange(desc(n))
+train %>% select(checkin) %>% arrange(checkin) %>% head(3)
 ```
 
+```{r}
+train %>% select(checkin) %>% arrange(desc(checkin)) %>% head(3)
+```
+
+
+```{r}
+train %>% group_by(user_id) %>% summarise(coun = n()) %>% arrange(desc(coun))
+```
+
+メモ：    
+単純に2万ユーザおる   
+
+これってテストと被るのが何人くらいいるのか    
+それによってユーザIDの重要性が異なる    
+再登場なしなら、単純に旅行する国の順番を考えれば良くなる    
+マルコフ連鎖というか、条件確率というか。単純言語生成みたいな    
+
+
+
+このカウント数はユーザーが一回のutripで複数回っても大きくなるし、複数回に分けて旅行しても大きくなる   
+
+一回の旅行でカウントしたければutrip id でグループ   
+
+
+```{r}
+train %>% group_by(user_id,utrip_id) %>% summarise(coun = n()) %>% arrange(desc(coun))
+```
+
+
+このサマリはユーザーが各旅行で何か所の町をまわったか、というサマリになる    
+つまり、一回の旅行で滅茶苦茶観光地をうつるユーザーが見つけられる    
+
+あまりに多い町数になっているユーザーは世界一周詰め込みタイプと名づける    
+
+ただし、この表示方法だと世界一周に1回いっただけで、ほかの旅行はそんなに回らない   
+というヒトもいるかもしれないので注意    
+
+もうちょっと国まで掘る    
+
+
+```{r}
+train %>% group_by(user_id,utrip_id, hotel_country) %>% summarise(coun = n()) %>% arrange(desc(coun))
+```
+
+
+
+
+
+ユーザー毎に並べたい    
+
+
+
+```{r}
+train %>% group_by(user_id,utrip_id, hotel_country) %>% summarise(coun = n()) %>% arrange(user_id,desc(coun))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+年中旅行しているヒトを調べるために    
+さらにカウントを付ける    
+
+
+
+
+```{r}
+train %>% group_by(user_id,utrip_id) %>% summarise(coun = n()) %>% group_by(user_id) %>% summarise(coun = n()) %>% arrange(desc(coun))
+```
+
+
+
+これでユーザー毎に201512-201702までの間に何回旅行したかが分かる   
+約位一年ちょっとで10回以上の人たちは、殆ど毎月旅行に行くようなスナフキン族だと考えられる    
+
+
+
+
+```{r}
+train
+```
+
+
+単純なcity id の登場回数    
+
+
+```{r}
+train %>% count(city_id) %>% arrange(desc(n))
+```
+
+
+テストの中に同じ常連さんはいるのか    
+
+```{r}
+test %>% filter(user_id %in% unique(train$user_id)) %>% count(user_id) %>% arrange(desc(n))
+```
+
+ちゃんとおるね    
+極論すると、この重複ユーザーはtrainからの旅行の傾向を掴むことができれば予測の可能性が見えてくる   
+
+ただし、いないヒトたちをどう扱うかが問題    
+クリック予想のタスクとか使えそう    
+
+
+
+以下はユーザーの訪れた町数と、重複をカウントした列    
+
+```{r}
+train %>% 
+  group_by(user_id,city_id) %>% 
+  summarise(coun = n()) %>% 
+  group_by(user_id) %>% 
+  summarise(visit_city_num = n(), sums_vis_city= sum(coun)) %>% 
+  arrange(desc(visit_city_num),user_id)
+```
+
+
+あるユーザーが一回の旅行で何か所くらいのcity idを回ったのかが分かる。ただし同じcityに複数回行った場合、それも重複してカウントされる。   
+
+```{r}
+train %>% count(user_id,utrip_id) %>% arrange(reorder(user_id,desc(n)),desc(n))
+```
+
+10ページくらいの3635431が複数のutrip idを持っていた。分割して旅行している。    
 
 ```{r}
 train %>% filter(user_id == "3635431") %>% group_by(utrip_id,city_id) %>% summarise(coun = n())
@@ -157,7 +396,636 @@ train %>% filter(user_id == "3635431") %>% group_by(utrip_id,city_id) %>% summar
 
 
 
-#
+旅行プランの偏りが気になってきた    
+どんな順序でまわるの？    
+月によって人気な国とか町はあるか    
+
+
+
+```{r}
+length(unique(train$city_id))
+```
+
+
+
+```{r}
+length(unique(train$hotel_country))
+```
+
+
+多すぎるからすこし減らしたい    
+
+
+```{r}
+train %>% count(hotel_country) %>% filter(n > 20)
+
+```
+
+
+
+```{r}
+comp_month <- train %>% 
+  group_by(hotel_country,checkin_month) %>% 
+  summarise(coun = n()) %>% 
+  complete(hotel_country,checkin_month) %>%
+  arrange(hotel_country,checkin_month) %>%
+  count(hotel_country) %>%
+  filter(n==12)
+
+```
+
+
+
+
+
+
+
+```{r}
+train %>% 
+  filter(hotel_country %in% unique(comp_month$hotel_country)) %>%
+  group_by(hotel_country,checkin_month) %>% 
+  summarise(coun = n()) %>% 
+  complete(hotel_country,checkin_month) %>%
+  arrange(hotel_country,checkin_month)
+  
+```
+
+
+
+
+```{r}
+library(ggjoy)
+
+```
+
+
+
+```{r}
+if(0){
+
+for(i in 1:length(unique(comp_month$hotel_country))){
+
+train %>% 
+  filter(hotel_country %in% unique(comp_month$hotel_country)) %>%
+  group_by(hotel_country,checkin_month) %>% 
+  summarise(coun = n()) %>% 
+  complete(hotel_country,checkin_month) %>%
+  arrange(hotel_country,checkin_month) %>%
+  filter(hotel_country == unique(comp_month$hotel_country)[i]) %>%
+ggplot(aes(x=checkin_month, y=coun)) +
+  geom_bar(stat="identity")+ 
+  ggtitle(unique(comp_month$hotel_country)[i])
+
+ggsave(str_c("month//",unique(comp_month$hotel_country)[i],".png"))
+
+}
+  
+  
+}
+
+```
+
+
+
+
+
+city id でも12か月コンプしているものをつかってみる
+
+
+
+
+
+
+
+```{r}
+comp_month_city <- train %>% 
+  mutate(comb = str_c(city_id,hotel_country)) %>%
+  group_by(comb,checkin_month) %>% 
+  summarise(coun = n())%>%
+  count(comb) %>%
+  filter(n==12)
+```
+
+
+
+
+
+
+```{r}
+train %>% 
+  mutate(comb = str_c(city_id,hotel_country)) %>%
+  filter(comb %in% unique(comp_month_city$comb)) %>%
+  group_by(comb,checkin_month) %>% 
+  summarise(coun = n()) %>% 
+  #complete(comb,checkin_month) %>%
+  arrange(comb,checkin_month)
+  
+```
+
+
+
+
+
+
+```{r}
+if(0){
+
+for(i in 1:length(unique(comp_month_city$comb))){
+
+  train %>% 
+  mutate(comb = str_c(city_id,hotel_country)) %>%
+  filter(comb %in% unique(comp_month_city$comb)) %>%
+  group_by(comb,checkin_month) %>% 
+  summarise(coun = n()) %>% 
+  #complete(comb,checkin_month) %>%
+  arrange(comb,checkin_month) %>%
+  filter(comb == unique(comp_month_city$comb)[i]) %>%
+  ggplot(aes(x=checkin_month, y=coun)) +
+  geom_bar(stat="identity")+ 
+  ggtitle(unique(comp_month_city$comb)[i])
+
+ggsave(str_c("city//",unique(comp_month_city$comb)[i],".png"))
+
+}
+
+  
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+train %>% 
+  group_by(hotel_country,checkin_month) %>% 
+  summarise(coun = n()) %>% 
+  arrange(hotel_country,checkin_month) %>% 
+  select(hotel_country) %>% unique()
+```
+
+仕事でやるとか、本気で賞狙いに行くなら各国の傾向深ぼれば良いと思います    
+
+
+
+
+
+
+
+一回や二回しか登場しない国は重要視する必要があるのか？    
+これが鍵となって一連の旅行パターンが組まれているとか？    
+
+それも含めて、utrip idを一つのユニークとして考えた時のマーケットバスケット（アプリオリ）でもしてみるか    
+
+```{r}
+train %>% count(hotel_country) %>% arrange(n)
+```
+
+
+
+
+
+```{r}
+train %>% head()
+```
+
+
+
+
+
+
+
+```{r}
+train %>% head(50) %>% select(city_id) %>% unique()
+```
+
+
+
+```{r}
+train %>% head(50) %>%
+  select(utrip_id,city_id,checkin)%>%
+  filter(utrip_id=="1010293_1")
+```
+
+
+
+```{r}
+
+if(0){
+
+dat <- 
+  data.table(
+    
+    train %>% 
+  select(utrip_id,city_id) %>%
+  group_by(utrip_id,city_id) %>% 
+  summarise(vv = n(),.groups = 'drop')%>%
+  complete(utrip_id,city_id,fill = list(vv=0))%>%
+  pivot_wider(names_from=city_id, values_from = vv)
+)
+
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+just_1 <- train %>% group_by(utrip_id) %>% summarise(coun=n()) %>% filter(coun == 1) %>% select(utrip_id) %>% unique()
+
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(hotel_country)
+
+```
+```{r}
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(booker_country)
+
+```
+
+
+```{r}
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(city_id)
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(user_id)
+
+```
+
+
+デバイスと宿泊期間に違いとか在ったりするかな？    
+あと宿泊サイトによっては長期を推奨するプランが在ったりとか？    
+
+```{r}
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(device_class)
+
+```
+
+
+```{r}
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(affiliate_id)
+
+```
+
+
+```{r}
+train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(checkin_month)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+一回しか登場してないようなcityは予測できなくない？    
+他の変数と特別な関係持ってたりする？    
+
+
+
+```{r}
+just_1_city <- train %>% group_by(city_id) %>% summarise(coun=n()) %>% filter(coun == 1)
+
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(city_id)
+```
+
+
+```{r}
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(booker_country)
+
+```
+
+
+
+
+```{r}
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(hotel_country)
+
+```
+
+```{r}
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(user_id)
+
+```
+
+
+
+```{r}
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(device_class)
+
+```
+
+
+```{r}
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(affiliate_id)
+
+```
+
+
+```{r}
+train %>% filter(city_id %in% just_1_city$city_id) %>% count(checkin_month)
+
+```
+
+
+
+
+
+
+
+
+
+
+人気の旅行プランを見つけて見たい    
+
+
+```{r}
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(sort(city_id), collapse = '-'))
+```
+
+
+
+旅行順    
+
+
+
+```{r}
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(sort(city_id), collapse = '-'))%>%
+  group_by(sort_combin) %>%
+  summarise(count_trip_plan = n()) %>%
+  arrange(desc(count_trip_plan))
+```
+
+
+
+```{r}
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(sort(city_id), collapse = '-'))%>%
+  group_by(sort_combin) %>%
+  summarise(count_trip_plan = n()) %>%
+  arrange(desc(count_trip_plan)) %>%
+  head(50)%>%
+  ggplot(aes(x=reorder(sort_combin,count_trip_plan),y=count_trip_plan)) +
+  geom_bar(stat = "identity") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+
+
+```{r}
+
+
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(city_id, collapse = '-'))%>%
+  group_by(sort_combin) %>%
+  summarise(count_trip_plan = n()) %>%
+  arrange(desc(count_trip_plan))
+
+```
+
+
+
+
+
+```{r}
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(city_id, collapse = '-'))%>%
+  group_by(sort_combin) %>%
+  summarise(count_trip_plan = n()) %>%
+  arrange(desc(count_trip_plan)) %>%
+  head(50)%>%
+  ggplot(aes(x=reorder(sort_combin,count_trip_plan),y=count_trip_plan)) +
+  geom_bar(stat = "identity") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+
+
+
+cityでなく国名で表示してみる(sortはわからんかった。sortしたデータフレームで同じことしたらええんか)    
+
+
+
+
+
+```{r}
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(hotel_country, collapse = '-'))%>%
+  group_by(sort_combin) %>%
+  summarise(count_trip_plan = n()) %>%
+  arrange(desc(count_trip_plan))%>%
+  mutate(plan_number =str_c("plan_",row_number()))
+
+```
+
+
+
+
+
+
+
+```{r}
+train %>% 
+  group_by(utrip_id) %>% 
+  summarise(sort_combin = str_c(hotel_country, collapse = '-'))%>%
+  group_by(sort_combin) %>%
+  summarise(count_trip_plan = n()) %>%
+  arrange(desc(count_trip_plan)) %>%
+  mutate(rn =row_number(),
+    plan_number =str_c("plan_",rn)) %>%
+  head(50)%>%
+  ggplot(aes(x=reorder(plan_number,count_trip_plan),y=count_trip_plan)) +
+  geom_bar(stat = "identity") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -235,18 +1103,18 @@ train %>% count(stay_days)  %>% arrange(desc(n))
 
 
 
-メモ：
-やっぱりロングステイの深堀はしたいかも
-幸いな事に1か月以上とかはない様子
+メモ：    
+やっぱりロングステイの深堀はしたいかも    
+幸いな事に1か月以上とかはない様子   
 
-超ロングステイと結びつくというと、
-・特別な個性を持つ富豪ユーザー
-とか
-・長期滞在がやすい国とか
-最悪外れ値の可能性も
+超ロングステイと結びつくというと、    
+・特別な個性を持つ富豪ユーザー    
+とか    
+・長期滞在がやすい国とか    
+最悪外れ値の可能性も    
 
 
-ココが固定できると予測とかイランくなってたすかる
+ココが固定できると予測とかイランくなってたすかる    
 
 
 
@@ -258,22 +1126,19 @@ train %>% count(stay_days)  %>% arrange(desc(n))
 train %>% count(checkin_month)  %>% arrange(desc(n))
 ```
 
-夏が多い
-海外も夏休みとかあんのかな
-しかし夏休みというと北半球
-南半球は12月のイメージだけど。
-そもそも北半球と南半球で旅行のオンシーズンってちがうの？
-国と長期休暇の違いが頭で結びついてないから調べる必要がありそう
 
-あと、大学の休みとかなら海外なら秋入学とかもあるだろうし。
+夏が多い    
+海外も夏休みとかあんのかな    
+しかし夏休みというと北半球    
+南半球は12月のイメージだけど。    
+そもそも北半球と南半球で旅行のオンシーズンってちがうの？    
+国と長期休暇の違いが頭で結びついてないから調べる必要がありそう    
 
+あと、大学の休みとかなら海外なら秋入学とかもあるだろうし。    
 
+その国特有の休日祝日とかあるだろうし(旧正月には日本へ行きがち、みたいな)    
 
-その国特有の休日祝日とかあるだろうし(旧正月には日本へ行きがち、みたいな)
-
-
-
-ユーザーの特性を学生・社会人・とかにクラスタリングできないものか
+ユーザーの特性を学生・社会人・とかにクラスタリングできないものか    
 
 
 
@@ -301,7 +1166,7 @@ train %>% count(checkin_month)  %>% arrange(desc(n))
 
 
 
-# 1-アクセス国と、対称国の関係　（フランス人は京都がお好き、みたいな）
+# 1-アクセス国と、対称国の関係　（フランス人は京都がお好き、みたいな）    
 
 
 ```{r}
@@ -310,8 +1175,8 @@ train %>% count(booker_country) %>% arrange(desc(n))
 
 
 
-メモ：
-実在の国じゃないのね？
+メモ：    
+実在の国じゃないのね？    
 
 
 ```{r}
@@ -323,11 +1188,10 @@ train %>%
 
 
 
-メモ：
-数少ないところは予測モデル作る時に不均衡になりそうで怖い
+メモ：    
+数少ないところは予測モデル作る時に不均衡になりそうで怖い    
 
-
-
+ここは時間かけて確認したい    
 
 
 
@@ -353,7 +1217,7 @@ train %>%
   mutate(joint = str_c(booker_country,'-',hotel_country))%>%
   group_by(joint)%>%
   summarise(coun = n())%>%
-  arrange(desc(coun))%>%
+  arrange(desc(coun))
 
 ```
 
@@ -391,11 +1255,11 @@ train %>%
 
 
 
-メモ：
-gondalが多すぎ
-コレ全体数に締める割合で考えたらどうか？
-nestして実行？group byしてから条件付けで確率に変換？
-国別にして可視化したほうが処理も楽やし、確認しやすくていいかも
+メモ：    
+gondalが多すぎ    
+コレ全体数に締める割合で考えたらどうか？    
+nestして実行？group byしてから条件付けで確率に変換？    
+国別にして可視化したほうが処理も楽やし、確認しやすくていいかも    
 
 
 
@@ -453,7 +1317,7 @@ train %>%
 
 
 
-常連さんがわかるかも
+常連さんがわかるかも    
 
 ```{r}
 train %>% 
@@ -499,11 +1363,11 @@ train %>%
 ```
 
 
-メモ：
-旅行好きをどの範囲からにしよう
-ABCランク分け的に上位25%くらい？
-にしてもユーザー数が多すぎなので絞ろう
-まずtop10人くらい
+メモ：    
+旅行好きをどの範囲からにしよう    
+ABCランク分け的に上位25%くらい？    
+にしてもユーザー数が多すぎなので絞ろう    
+まずtop10人くらい   
 
 
 
@@ -525,8 +1389,8 @@ trip_lover_10
 
 
 
-常連さんはどこに行ってるの？
-ボクはタイにいきたい
+常連さんはどこに行ってるの？    
+ボクはタイにいきたい    
 
 
 
@@ -553,9 +1417,9 @@ train %>% filter(user_id %in% unique(trip_lover_10$user_id)) %>%
 
 
 
-メモ：
-滞在日数とかでも深ぼりたい
-それは5でやる？
+メモ：    
+滞在日数とかでも深ぼりたい    
+それは5でやる？   
 
 
 
