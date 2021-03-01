@@ -58,17 +58,11 @@ test <- read_csv("booking_test_set.csv")
 
 ```{r}
 
-
-
 train_IDs <- train %>% mutate(IDs = row_number()) %>% filter(hotel_country == "Phaic Tăn")
 test_IDs <- test %>% mutate(IDs = row_number()) %>% filter(hotel_country == "Phaic Tăn")
 
 train[train_IDs$IDs,"hotel_country"]<- "Phaic Tan"
 test[test_IDs$IDs,"hotel_country"]<- "Phaic Tan"
-
-
-
-
 
 train <- train %>% 
   mutate(user_id = as.character(user_id),
@@ -89,8 +83,6 @@ test <- test %>%
          checkin_month = month(checkin),
          checkin_year = year(checkin)
          )
-  
-
 
 train <- train %>% 
   arrange(utrip_id,checkin) %>% 
@@ -103,17 +95,6 @@ test <- test %>%
   group_by(utrip_id) %>% 
   mutate(city_step=row_number()) %>% 
   ungroup()
-
-
-
-
-
-
-
-
-
-
-
 
 ```
 
@@ -147,6 +128,201 @@ train %>% head(3)
 ```{r}
 test %>% names()
 ```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
+  geom_col() +
+  scale_y_continuous(labels = comma) +
+  labs(y = "X",
+       x = "Y")
+```
+
+
+```{r}
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
+  geom_col() +
+  scale_y_continuous(labels = comma) +
+  labs(y = "X",
+       x = "Y")
+```
+
+
+
+```{r}
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin_month, y=n, color = categoly)) +
+  geom_line() +
+  scale_y_continuous(labels = comma) +
+  labs(y = "X",
+       x = "Y")
+```
+
+
+
+
+
+
+```{r}
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
+  geom_col() +
+  facet_wrap(~categoly,scales = "free_x")+
+  scale_y_continuous(labels = comma) +
+  labs(y = "X",
+       x = "Y")
+```
+
+
+
+
+
+  geom_line() +
+  facet_wrap(~ industry, scales = "free_y") +
+  expand_limits(y = 0) +
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+https://cran.r-project.org/web/packages/widyr/index.html
+
+https://niszet.hatenablog.com/entry/2018/05/11/073000
+
+# アイデアメモセル
+
+comparison <- employed_cleaned %>%
+  filter(year %in% c(2019, 2020)) %>%
+  mutate(major_occupation = paste(industry, major_occupation, sep = " - "),
+         minor_occupation = paste(major_occupation, minor_occupation, sep = " - ")) %>%
+  gather(level, occupation, industry, major_occupation, minor_occupation) %>%
+  group_by(dimension, race_gender, level, occupation, year) %>%
+  summarize(employ_n = sum(employ_n)) %>%
+  ungroup() %>%
+  arrange(year) %>%
+  group_by(dimension, level, occupation, race_gender) %>%
+  summarize(ratio = last(employ_n) / first(employ_n),
+            change = ratio - 1,
+            employed_2019 = first(employ_n)) %>%
+  group_by(dimension, level, occupation) %>%
+  mutate(total_2019 = sum(employed_2019)) %>%
+  ungroup()
+
+
+
+
+compare_2019_2020 %>%
+  filter(dimension == "Gender") %>%
+  
+  mutate(industry = fct_reorder(industry, change)) %>%
+  
+  
+  ggplot(aes(change, industry)) +
+  geom_errorbarh(aes(xmin = 0, xmax = change, color = race_gender),
+                 height = 0,
+                 position = position_dodge(width = .7)) +
+  geom_point(aes(size = employed_2019, color = race_gender),
+             position = position_dodge(width = .7)) +
+  geom_vline(lty = 2, xintercept = 0) +
+  
+  scale_x_continuous(labels = percent) +
+  scale_color_discrete(guide = guide_legend(reverse = TRUE)) +
+  scale_size_continuous(labels = comma, guide = FALSE) +
+  labs(title = "What industries suffered the most in 2020?",
+       subtitle = "Size of point represents # employed in industry in 2019",
+       x = "Shift in # employed from 2019 to 2020 (BLS)",
+       y = "",
+       color = "Gender",
+       size = "# employed 2019")
+
+
+
+
+
+
+
+
+
+
+
+
+
+library(ggrepel)
+compare_2019_2020 %>%
+  filter(dimension == "Total") %>%
+  mutate(industry = fct_reorder(industry, change)) %>%
+  ggplot(aes(employed_2019, change)) +
+  geom_point() +
+  geom_text_repel(aes(label = industry)) +
+  geom_hline(lty = 2, yintercept = 0) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = percent)
+
+
+
+
+```
+
+
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1441,6 +1617,27 @@ train %>% names()
 train %>% group_by(utrip_id,user_id) %>% summarise(count=n()) %>% arrange(desc(count))
 ```
 
+```{r}
+train %>% filter(user_id == "433188") %>% count(utrip_id)
+```
+
+
+ひょっとしたらidの欠けているところがtestに来るのでは？とおもった。    
+
+
+```{r}
+test %>% filter(user_id == "433188") %>% count(utrip_id)
+```
+
+ここにはないけどプライベートデータにはあるとか？    
+
+
+
+```{r}
+skim(train)
+```
+
+
 
 
 
@@ -1453,6 +1650,10 @@ train %>% group_by(utrip_id,hotel_country) %>% summarise(count=n()) %>% arrange(
 ```{r}
 train %>% group_by(utrip_id,hotel_country,city_id) %>% summarise(count=n()) %>% arrange(desc(count))
 ```
+
+
+# デバイスクラスでみてみる
+
 
 
 
