@@ -25,3 +25,9 @@ https://www.datacamp.com/community/tutorials/r-packages-guide
 http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
 http://circos.ca/
 https://medium.com/@jameschen_78678/web-behavior-analytics-103-955bd8b81cc6
+
+
+https://cran.r-project.org/web/packages/ggalluvial/vignettes/ggalluvial.html
+https://www.r-graph-gallery.com/sankey-diagram.html
+https://rkabacoff.github.io/datavis/Other.html
+https://stackoverflow.com/questions/50395027/beautifying-sankey-alluvial-visualization-using-r
