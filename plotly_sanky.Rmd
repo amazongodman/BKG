@@ -1,0 +1,158 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+
+
+
+
+```{r}
+#install.packages("ggjoy")
+setwd("C:\\Users\\ringa\\Desktop\\BKG")
+library(arules)
+library(tidyverse)
+library(skimr)
+library(lubridate)
+
+#library(scale)
+```
+
+
+
+```{r}
+train <- read_csv("booking_train_set.csv") %>% mutate(city_id = as.character(city_id))
+test <- read_csv("booking_test_set.csv") 
+```
+
+
+
+
+
+
+
+
+```{r}
+ft <- train %>% 
+  group_by(hotel_country,utrip_id) %>% 
+  summarize(from = c('start', city_id), 
+            to = c(city_id, 'end'), .groups = 'drop') %>% 
+  
+  group_by(hotel_country,from,to) %>% 
+  summarise(n = n(),.groups = "drop")
+```
+
+
+
+
+
+
+
+```{r}
+id_master <- train %>% 
+  distinct(hotel_country,city_id) %>% 
+  mutate(seq = row_number())
+
+#id_master %>% tail()
+
+id_master <- id_master %>% 
+  bind_rows(data.frame(city_id = c("start","end"),
+                       hotel_country = c("home","home"),
+                       seq = c(nrow(id_master) + 1, nrow(id_master) + 2)))
+```
+
+
+
+
+
+
+
+
+
+```{r}
+vis_data <- left_join(ft,id_master,by=c("from"="city_id")) %>%
+  select(-c(hotel_country.y)) %>% 
+  rename(from_num = seq) %>%
+  left_join(id_master,by=c("to"="city_id")) %>% 
+  select(-c(hotel_country)) %>% 
+  rename(to_num = seq) %>% 
+  rename(country = hotel_country.x)
+```
+
+
+
+
+
+
+
+
+```{r}
+seq_trip <- train %>% count(hotel_country,sort = T) %>% filter(n > 10)
+```
+
+```{r}
+library(plotly)
+library(htmlwidgets)
+```
+
+
+
+```{r}
+oo <- rev(c(1:154))
+
+for(bo in 1:154){
+
+  
+i <- oo[bo]
+  
+
+vis <- vis_data %>% filter(country %in% c(seq_trip$hotel_country[i],"home"))
+
+
+fig <- plot_ly(
+  type = "sankey",
+  orientation = "h",
+  node = list(
+    label = str_c(id_master$city_id,id_master$hotel_country,sep = "-"),
+    color = rep("blue",length(unique(id_master$hotel_country))),
+    pad = 15,thickness = 10,
+  line = list(color = "black",width = 0.1)
+  ),
+  
+  link = list(
+    source = vis$from_num,
+    target = vis$to_num,
+    value =  vis$n
+  )
+)
+
+fig <- fig %>% layout(
+  title = str_c(seq_trip$hotel_country[i],"Where Do We Come From & Going ?"),
+  font = list(
+    size = 10
+  )
+)
+
+
+saveWidget(fig, str_c("plt//",seq_trip$hotel_country[i],".html"), selfcontained = T)
+
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

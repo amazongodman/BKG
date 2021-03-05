@@ -5,12 +5,14 @@ output: html_document
 
 
 ```{r}
-
+#install.packages("ggjoy")
 setwd("C:\\Users\\ringa\\Desktop\\BKG")
 library(arules)
 library(tidyverse)
 library(skimr)
 library(lubridate)
+
+#library(scale)
 ```
 
 
@@ -21,8 +23,87 @@ library(lubridate)
 
 
 ```{r}
-train <- read_csv("booking_train_set.csv") 
+train <- read_csv("booking_train_set.csv") %>% mutate(city_id = as.character(city_id))
 test <- read_csv("booking_test_set.csv") 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+net <- graph_from_data_frame(d=links, vertices=nodes, directed=T) 
+net
+
+E(net)       # The edges of the "net" object
+V(net)       # The vertices of the "net" object
+E(net)$type  # Edge attribute "type"
+V(net)$media # Vertex attribute "media"
+
+# Find nodes and edges by attribute:
+# (that returns oblects of type vertex sequence/edge sequence)
+V(net)[media=="BBC"]
+E(net)[type=="mention"]
+
+# You can also accesss the network matrix directly:
+net[1,]
+net[5,7]
+
+
+plot(net)
+
+
+
+
+
+
+
+
+```{r}
+train %>% head()
+```
+
+
+
+
+
+```{r}
+train %>% 
+  
+  
+  
+  
 ```
 
 
@@ -145,7 +226,7 @@ train %>%
   mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
   ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
   geom_col() +
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous() +
   labs(y = "X",
        x = "Y")
 ```
@@ -158,7 +239,7 @@ train %>%
   filter(categoly != "Other") %>%
   ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
   geom_col() +
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous() +
   labs(y = "X",
        x = "Y")
 ```
@@ -172,10 +253,237 @@ train %>%
   filter(categoly != "Other") %>%
   ggplot(aes(x=checkin_month, y=n, color = categoly)) +
   geom_line() +
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous() +
   labs(y = "X",
        x = "Y")
 ```
+
+
+
+
+
+```{r}
+
+train %>%
+  count(hotel_country,checkin) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin, y=n, color = categoly)) +
+  geom_line() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+```
+
+
+
+
+
+
+
+
+```{r}
+
+train %>%
+  count(hotel_country,checkout) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkout, y=n, color = categoly)) +
+  geom_line() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+```
+
+
+
+
+```{r}
+
+train %>% 
+  head()
+
+```
+
+
+
+
+
+
+
+
+```{r}
+train %>% head()
+```
+
+
+
+```{r}
+library(lubridate)
+
+dt <- train %>% 
+  select(checkin) %>% 
+  mutate( y = year(checkin))
+
+
+
+dt %>% 
+  mutate(data = rnorm(nrow(dt),100.10)) %>% 
+  ggplot(aes(x=y,y=data))+
+  geom_histogram()
+
+
+```
+
+
+
+```{r}
+
+train %>% 
+  add_count(user_id) %>% 
+  mutate(top_user = fct_lump(user_id, 10,w=n)) %>% 
+  ggplot(aes(x=checkin,y=stay_days)) +
+  geom_line()+
+  facet_wrap( ~top_user)
+
+```
+
+
+
+```{r}
+
+test %>% 
+  add_count(user_id) %>% 
+  mutate(top_user = fct_lump(user_id, 10,w=n)) %>% 
+  ggplot(aes(x=checkin,y=stay_days)) +
+  geom_line()+
+  facet_wrap( ~top_user)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+train
+```
+
+
+
+
+```{r}
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  ggplot(aes(x=stds)) +
+  geom_histogram()
+  
+```
+
+
+
+```{r}
+train %>% 
+  count(stay_days)
+```
+
+
+
+
+
+```{r}
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  filter(stds == 30) %>% 
+  count(user_id,sort = T)
+
+```
+
+
+
+```{r}
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  filter(stds == 30) %>% 
+  count(hotel_country,sort = T)
+
+```
+
+
+
+
+
+```{r}
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  ggplot(aes(x=stds)) +
+  geom_histogram()+
+  facet_wrap(~booker_country)
+```
+
+
+
+```{r}
+train
+```
+
+```{r}
+train %>% names()
+```
+
+
+```{r}
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  ggplot(aes(x=stds)) +
+  geom_histogram()+
+  facet_wrap(~device_class)
+
+```
+
+
+
+
+```{r}
+train %>% count(city_step,sort = T)
+```
+
+
+
+```{r}
+train %>% 
+  count(city_step,sort = T) %>% 
+  ggplot(aes(x=city_step,y=n))+
+  geom_col()
+```
+
+
+```{r}
+
+train %>% count(user_id)
+
+```
+
+
+
+
+```{r}
+
+train %>% 
+  count(city_step,sort = T) %>% 
+  ggplot(aes(x=city_step,y=n))+
+  geom_col()
+
+```
+
 
 
 
@@ -190,7 +498,7 @@ train %>%
   ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
   geom_col() +
   facet_wrap(~categoly,scales = "free_x")+
-  scale_y_continuous(labels = comma) +
+  scale_y_continuous() +
   labs(y = "X",
        x = "Y")
 ```
@@ -213,7 +521,7 @@ train %>%
 
 
 
-```{r}
+
 
 https://cran.r-project.org/web/packages/widyr/index.html
 
@@ -274,9 +582,6 @@ compare_2019_2020 %>%
 
 
 
-
-
-
 library(ggrepel)
 compare_2019_2020 %>%
   filter(dimension == "Total") %>%
@@ -287,36 +592,6 @@ compare_2019_2020 %>%
   geom_hline(lty = 2, yintercept = 0) +
   scale_x_continuous(labels = comma) +
   scale_y_continuous(labels = percent)
-
-
-
-
-```
-
-
-
-
-```{r}
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -478,7 +753,10 @@ train %>% group_by(user_id,utrip_id, hotel_country) %>% summarise(coun = n()) %>
 
 
 ```{r}
-train %>% group_by(user_id,utrip_id, hotel_country) %>% summarise(coun = n()) %>% arrange(user_id,desc(coun))
+train %>% 
+  group_by(user_id,utrip_id, hotel_country) %>% 
+  summarise(coun = n()) %>% 
+  arrange(user_id,desc(coun))
 ```
 
 
@@ -502,7 +780,12 @@ train %>% group_by(user_id,utrip_id, hotel_country) %>% summarise(coun = n()) %>
 
 
 ```{r}
-train %>% group_by(user_id,utrip_id) %>% summarise(coun = n()) %>% group_by(user_id) %>% summarise(coun = n()) %>% arrange(desc(coun))
+train %>% 
+  group_by(user_id,utrip_id) %>% 
+  summarise(coun = n()) %>% 
+  group_by(user_id) %>% 
+  summarise(coun = n()) %>% 
+  arrange(desc(coun))
 ```
 
 
@@ -593,7 +876,9 @@ length(unique(train$hotel_country))
 
 
 ```{r}
-train %>% count(hotel_country) %>% filter(n > 20)
+train %>% 
+  count(hotel_country) %>% 
+  filter(n > 20)
 
 ```
 
@@ -812,7 +1097,9 @@ train %>%
 それも含めて、utrip idを一つのユニークとして考えた時のマーケットバスケット（アプリオリ）でもしてみるか    
 
 ```{r}
-train %>% count(hotel_country) %>% arrange(n)
+train %>% 
+  count(hotel_country) %>% 
+  arrange(n)
 ```
 
 
@@ -830,13 +1117,17 @@ train %>% head()
 
 
 ```{r}
-train %>% head(50) %>% select(city_id) %>% unique()
+train %>% 
+  head(50) %>% 
+  select(city_id) %>% 
+  unique()
 ```
 
 
 
 ```{r}
-train %>% head(50) %>%
+train %>% 
+  head(50) %>%
   select(utrip_id,city_id,checkin)%>%
   filter(utrip_id=="1010293_1")
 ```
@@ -927,11 +1218,284 @@ dat <-
 
 
 ```{r}
-just_1 <- train %>% group_by(utrip_id) %>% summarise(coun=n()) %>% filter(coun == 1) %>% select(utrip_id) %>% unique()
+just_1 <- train %>% 
+  group_by(utrip_id) %>% 
+  summarise(coun=n()) %>% 
+  filter(coun == 1) %>% 
+  select(utrip_id) %>%
+  unique()
+```
 
-train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(hotel_country)
+
+
+```{r}
+train %>% 
+  filter(utrip_id %in% just_1$utrip_id) %>% 
+  count(hotel_country)
+```
+
+
+
+```{r}
+train %>% 
+  filter(utrip_id %in% just_1$utrip_id) %>% 
+  count(booker_country)
+```
+
+
+
+
+```{r}
+train %>% 
+  filter(utrip_id %in% just_1$utrip_id) %>% 
+  count(user_id)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+just_1 <- train %>% 
+  group_by(utrip_id) %>% 
+  summarise(coun=n()) %>% 
+  filter(coun < 20 ) %>% 
+  select(utrip_id) %>%
+  unique()
 
 ```
+
+
+
+```{r}
+
+train %>% 
+  filter(utrip_id %in% just_1$utrip_id) %>% 
+  count(hotel_country)
+
+```
+
+
+
+
+```{r}
+train %>% 
+  filter(utrip_id %in% just_1$utrip_id) %>% 
+  count(booker_country)
+```
+
+
+
+```{r}
+train %>% 
+  filter(utrip_id %in% just_1$utrip_id) %>% 
+  count(user_id)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+train %>% 
+  group_by(user_id,utrip_id) %>% 
+  summarise(n = n(),.groups = "drop") %>% 
+  arrange(desc(n)) %>% 
+  group_by(user_id) %>% 
+  summarise(n=sum(n)) %>% 
+  arrange(desc(n))
+
+```
+
+
+```{r}
+
+train %>% 
+  filter(user_id == "2209265")
+
+
+
+```
+
+
+
+```{r}
+
+train %>% 
+  distinct(user_id,affiliate_id) %>% 
+  group_by(user_id) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot(aes(x=n))+
+  geom_histogram()
+
+```
+
+
+
+
+```{r}
+
+train %>% 
+  distinct(user_id,booker_country,affiliate_id) %>% 
+  group_by(user_id,booker_country) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
+  ggplot(aes(x=n))+
+  geom_histogram()+
+  facet_wrap( ~ booker_country)
+
+```
+
+
+
+
+```{r}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r}
 train %>% filter(utrip_id %in% just_1$utrip_id) %>% count(booker_country)
 
