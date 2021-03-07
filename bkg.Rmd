@@ -1403,6 +1403,7 @@ train %>%
 
 
 ```{r}
+sessionInfo()
 ```
 
 
