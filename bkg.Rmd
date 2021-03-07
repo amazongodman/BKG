@@ -98,15 +98,6 @@ train %>% head()
 
 
 
-```{r}
-train %>% 
-  
-  
-  
-  
-```
-
-
 
 
 
@@ -328,10 +319,6 @@ dt <- train %>%
 
 
 
-dt %>% 
-  mutate(data = rnorm(nrow(dt),100.10)) %>% 
-  ggplot(aes(x=y,y=data))+
-  geom_histogram()
 
 
 ```
