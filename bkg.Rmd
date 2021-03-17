@@ -11,7 +11,6 @@ library(arules)
 library(tidyverse)
 library(skimr)
 library(lubridate)
-
 #library(scale)
 ```
 
@@ -2240,6 +2239,496 @@ train %>% group_by(utrip_id,hotel_country,city_id) %>% summarise(count=n()) %>% 
 
 
 
+```{r}
+#install.packages("ggjoy")
+setwd("C:\\Users\\ringa\\Desktop\\BKG")
+library(arules)
+library(tidyverse)
+library(skimr)
+library(lubridate)
+#library(scale)
+
+require(alluvial)
+
+
+train <- read_csv("booking_train_set.csv") %>% 
+  mutate(city_id = as.character(city_id))
+test <- read_csv("booking_test_set.csv") %>% 
+  mutate(city_id = as.character(city_id))
+
+
+train_IDs <- train %>% mutate(IDs = row_number()) %>% filter(hotel_country == "Phaic Tăn")
+test_IDs <- test %>% mutate(IDs = row_number()) %>% filter(hotel_country == "Phaic Tăn")
+
+train[train_IDs$IDs,"hotel_country"]<- "Phaic Tan"
+test[test_IDs$IDs,"hotel_country"]<- "Phaic Tan"
+
+train <- train %>% 
+  mutate(user_id = as.character(user_id),
+         city_id = as.character(city_id),
+         affiliate_id = as.character(affiliate_id),
+         stay_days = ymd(checkout) - ymd(checkin),
+         joint = str_c(booker_country,'-',hotel_country),
+         checkin_month = month(checkin),
+         checkin_year = year(checkin)
+  )
+
+test <- test %>%   
+  mutate(user_id = as.character(user_id),
+         city_id = as.character(city_id),
+         affiliate_id = as.character(affiliate_id),
+         stay_days = ymd(checkout) - ymd(checkin),
+         joint = str_c(booker_country,'-',hotel_country),
+         checkin_month = month(checkin),
+         checkin_year = year(checkin)
+  )
+
+train <- train %>% 
+  arrange(utrip_id,checkin) %>% 
+  group_by(utrip_id) %>% 
+  mutate(city_step=row_number()) %>% 
+  ungroup()
+
+test <- test %>% 
+  arrange(utrip_id,checkin) %>% 
+  group_by(utrip_id) %>% 
+  mutate(city_step=row_number()) %>% 
+  ungroup()
+
+train %>% names()
+
+
+
+
+
+
+
+
+
+
+
+top_country <- train %>% count(hotel_country,sort = T) %>% head(20)
+
+
+
+df <- train %>% 
+  filter(hotel_country %in% unique(top_country$hotel_country)) %>% 
+  group_by(booker_country,device_class,hotel_country) %>% 
+  summarise(sums=sum(stay_days),.groups = "drop")
+
+
+#alluvial(df[,1:3],freq=as.numeric(df$sums),border = NA)
+
+
+
+
+labe_name = c(str_c("from",unique(df$booker_country),sep = "_"),unique(df$device_class),str_c("to",unique(df$hotel_country),sep = "_"))
+
+
+master <- data.frame(
+  labe_name = c(str_c("from",unique(df$booker_country),sep = "_"),unique(df$device_class),str_c("to",unique(df$hotel_country),sep = "_")),
+labe_numb = c(0:(length(labe_name)-1))
+)
+
+
+df$sums <- as.numeric(as.factor(df$sums))
+
+
+
+dfdf <- df %>% 
+  #select(booker_country,device_class) %>% 
+  mutate(from = str_c("from",booker_country,sep = "_"),
+         to = str_c("to",hotel_country,sep = "_"))
+
+sank_df <- rbind(dfdf %>% select(from,device_class,sums) %>% rename("to" = device_class,"freq"=sums),
+                 dfdf %>% select(device_class,to,sums) %>% rename("from" = device_class,"freq"=sums))
+
+
+sank_df2 <- sank_df %>% 
+  left_join(master,by = c("from"="labe_name")) %>% 
+  left_join(master,by = c("to"="labe_name")) %>% 
+  rename("from_num"=labe_numb.x,"to_num"=labe_numb.y)
+
+#sank_df2 %>% filter(from=="Gondal")
+
+
+library(plotly)
+
+
+
+sank_df2<- sank_df2 %>% group_by(from,to,from_num,to_num) %>% summarise(n=sum(freq),.groups = "drop")
+
+
+fig <- plot_ly(
+  type = "sankey",
+  orientation = "h",
+  node = list(
+    label = master$labe_name,
+    pad = 15,
+    thickness = 20,
+    line = list(
+      color = "black",
+      width = 0.5
+    )
+  ),
+  link = list(
+    source = sank_df2$from_num,
+    target = sank_df2$to_num,
+    value =  sank_df2$n
+  )
+)
+
+
+fig <- fig %>% layout(
+  title = "Basic Sankey Diagram",
+  font = list(
+    size = 10
+  )
+)
+
+fig
+
+
+
+
+
+#sank_df2 %>% filter(from=="tablet") %>% filter(to == "Tcherkistan")
+
+#sank_df2 %>% filter(to == "Tcherkistan")
+
+#sank_df2 %>% filter(from == "Tcherkistan")
+
+#master
+
+
+
+
+
+
+train
+
+
+library(plotly)
+
+fig <- plot_ly(
+  labels = c("Eve", "Cain", "Seth", "Enos", "Noam", "Abel", "Awan", "Enoch", "Azura"),
+  parents = c("", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve"),
+  values = c(10, 14, 12, 10, 2, 6, 6, 4, 4),
+  type = 'sunburst'
+)
+
+fig
+
+
+
+
+
+
+library(plotly)
+
+fig <- plot_ly(
+  type="treemap",
+  labels=c("Eve", "Cain", "Seth", "Enos", "Noam", "Abel", "Awan", "Enoch", "Azura"),
+  parents=c("", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve")
+)
+fig
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
+  geom_col() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
+  geom_col() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+
+
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin_month, y=n, color = categoly)) +
+  geom_line() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+
+train %>%
+  count(hotel_country,checkin) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin, y=n, color = categoly)) +
+  geom_line() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+
+
+
+train %>%
+  count(hotel_country,checkout) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkout, y=n, color = categoly)) +
+  geom_line() +
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dt <- train %>% 
+  select(checkin) %>% 
+  mutate( y = year(checkin))
+
+
+
+
+
+train %>% 
+  add_count(user_id) %>% 
+  mutate(top_user = fct_lump(user_id, 10,w=n)) %>% 
+  ggplot(aes(x=checkin,y=stay_days)) +
+  geom_line()+
+  facet_wrap( ~top_user)
+
+
+test %>% 
+  add_count(user_id) %>% 
+  mutate(top_user = fct_lump(user_id, 10,w=n)) %>% 
+  ggplot(aes(x=checkin,y=stay_days)) +
+  geom_line()+
+  facet_wrap( ~top_user)
+
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  ggplot(aes(x=stds)) +
+  geom_histogram()
+
+
+
+train %>% 
+  count(stay_days)
+
+
+
+
+
+
+
+
+
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  filter(stds == 30) %>% 
+  count(user_id,sort = T)
+
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  filter(stds == 30) %>% 
+  count(hotel_country,sort = T)
+
+
+
+
+
+
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  ggplot(aes(x=stds)) +
+  geom_histogram()+
+  facet_wrap(~booker_country)
+
+
+
+
+
+
+train %>% 
+  mutate(stds = as.numeric(stay_days) ) %>% 
+  ggplot(aes(x=stds)) +
+  geom_histogram()+
+  facet_wrap(~device_class)
+
+
+
+
+
+train %>% count(city_step,sort = T)
+
+
+
+
+
+
+
+
+train %>% 
+  count(city_step,sort = T) %>% 
+  ggplot(aes(x=city_step,y=n))+
+  geom_col()
+
+
+
+
+
+train %>% count(user_id)
+
+
+
+
+
+
+train %>% 
+  count(city_step,sort = T) %>% 
+  ggplot(aes(x=city_step,y=n))+
+  geom_col()
+
+
+
+
+
+
+
+
+train %>%
+  count(hotel_country,checkin_month) %>%
+  mutate(categoly = fct_lump(hotel_country, 10,w=n)) %>%
+  filter(categoly != "Other") %>%
+  ggplot(aes(x=checkin_month, y=n, fill = categoly)) +
+  geom_col() +
+  facet_wrap(~categoly,scales = "free_x")+
+  scale_y_continuous() +
+  labs(y = "X",
+       x = "Y")
+
+
+
+
+
+
+
+
+```
 
 
 
